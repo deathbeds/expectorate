@@ -3,6 +3,10 @@ name: lsp-json-schema
 commands:
   setup:
     unix: python -m pip install -e .
+  test:
+    unix: pytest
+  lint:
+    unix: black src && isort -rc src
 
 env_specs:
   lsp-json-schema:
@@ -22,6 +26,12 @@ env_specs:
       - pip
       - pyemojify
       - pytest
+      - pytest-cov
+      - pytest-flake8
+      - pytest-mypy
       - python >=3.8,<3.9.0a0
       - pyyaml
       - yarn
+      - pip:
+        - pytest-black
+        - pytest-isort

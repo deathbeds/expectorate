@@ -1,4 +1,5 @@
 import click
+
 from ._version import __version__
 
 
@@ -7,4 +8,4 @@ from ._version import __version__
 def cli():
     """ lsp-json-schema
     """
-    click.echo('Hello World!')
+    click.echo("Hello World!")

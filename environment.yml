@@ -17,6 +17,12 @@ dependencies:
   - pip
   - pyemojify
   - pytest
+  - pytest-cov
+  - pytest-flake8
+  - pytest-mypy
   - python >=3.8,<3.9.0a0
   - pyyaml
   - yarn
+  - pip:
+    - pytest-black
+    - pytest-isort
