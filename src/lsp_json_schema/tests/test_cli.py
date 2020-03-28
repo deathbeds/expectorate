@@ -1,3 +1,4 @@
+# import traceback
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -15,7 +16,9 @@ def test_version():
 def test_cli_default(tmp_path: Path):
     runner = CliRunner()
     workdir = tmp_path / "work"
-    result = runner.invoke(cli, ["--workdir", str(workdir)])
-    assert result.exit_code == 0
+    output = tmp_path / "output"
+    args = ["--workdir", str(workdir), "--output", str(output)]
+    result = runner.invoke(cli, args, catch_exceptions=False)
+    assert result.exit_code == 0, result.__dict__
     assert (workdir / "language-server-protocol").exists()
     assert (workdir / "vscode-languageserver-node").exists()

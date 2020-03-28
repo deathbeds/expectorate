@@ -18,7 +18,7 @@ def ensure_repo(workdir: Path, repo_url: Text, committish: Text) -> Path:
 def ensure_js_package(root: Path, package: Text, version: Text) -> None:
     package_json = json.loads((root / "package.json").read_text())
     in_json = package_json["devDependencies"].get(package)
-    if version not in in_json:
+    if in_json is None or version not in in_json:
         subprocess.check_call(
             ["npm", "install", "--save-dev", f"{package}@{version}"], cwd=root
         )

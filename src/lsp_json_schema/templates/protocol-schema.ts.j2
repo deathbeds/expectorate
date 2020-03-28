@@ -1,0 +1,52 @@
+{% macro feature(row) -%}_{{ row.ns_title }}Feature{%- endmacro %}
+{% macro request(row) -%}_{{ row.ns_title }}Request{%- endmacro %}
+{% macro result(row) -%}_{{ row.ns_title }}Response{%- endmacro %}
+
+import {RequestMessage} from 'vscode-jsonrpc';
+import {ResponseMessage, ResponseErrorLiteral} from 'vscode-jsonrpc/lib/messages';
+import * as proto from './main';
+
+// this didn't get exported anywhere
+
+export interface CancelParams {
+    /**
+     * The request id to cancel.
+     */
+    id: number | string;
+}
+
+// couldn't find this either
+
+export interface _ErrorResponse extends Omit<ResponseMessage, 'result'>{
+    error: ResponseErrorLiteral<any>;
+}
+
+export type _AnyFeature = {% for row in rows %}
+    | {{ feature(row) }}{% endfor %};
+
+export type _AnyRequest = {% for row in rows %}
+    | {{ request(row) }}{% endfor %};
+
+export type _AnyResponse = {% for row in rows %}
+    {% if row.result %}| {{ result(row) }}{% endif %}{% endfor %};
+
+{% for row in rows %}
+export interface {{ request(row) }} extends RequestMessage {
+    method: '{{ row.method }}';
+    {%- if row.params %}
+    params: {% if row.params == 'CancelParams' %}CancelParams{% else %}proto.{{ row.params }}{% endif %};
+    {%- endif %}
+}
+
+{% if row.result %}
+export interface {{ result(row) }} extends Omit<ResponseMessage, 'error'> {
+    result: {{ row.ns_result }};
+}
+{% endif %}
+
+export interface {{ feature(row) }} {
+    request: {{ request(row) }};
+    {% if row.result %}response: {{ result(row) }} | _ErrorResponse;
+    {% endif %}
+}
+{% endfor %}

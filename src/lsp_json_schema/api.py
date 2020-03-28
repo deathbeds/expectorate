@@ -48,7 +48,15 @@ class Generator:
         self.ensure_js_deps()
         self.build_naive_schema()
         self.extract_spec_features()
-        self.df_part_one()
+        # do data munging
+        self.init_df()
+        self.annotate_params()
+        self.annotate_results()
+        self.annotate_result_schema()
+        self.check_results()
+        self.annotate_method_titles()
+        self.annotate_result_titles()
+
         return 0
 
     def ensure_repos(self):
@@ -75,20 +83,21 @@ class Generator:
             ensure_js_package(self.vlspn_dir, "prettier", self.prettier_version)
 
     def build_naive_schema(self):
-        proto = self.vlspn_dir / "protocol"
-        self.naive_schema = json.loads(
-            subprocess.check_output(
-                [
-                    "node",
-                    self.vlspn_dir / "node_modules" / ".bin" / constants.TSSG,
-                    "--path",
-                    proto / "src" / "protocol.ts",
-                    "--expose",
-                    "all",
-                ],
-                cwd=proto,
-            ).decode("utf-8")
-        )
+        if self.vlspn_dir is not None:
+            proto = self.vlspn_dir / "protocol"
+            self.naive_schema = json.loads(
+                subprocess.check_output(
+                    [
+                        "node",
+                        self.vlspn_dir / "node_modules" / ".bin" / constants.TSSG,
+                        "--path",
+                        proto / "src" / "protocol.ts",
+                        "--expose",
+                        "all",
+                    ],
+                    cwd=proto,
+                ).decode("utf-8")
+            )
 
     def extract_spec_features(self):
         if self.raw_spec:
@@ -98,7 +107,7 @@ class Generator:
                 .split("#### <a href")[1:]
             )
 
-    def df_part_one(self):
+    def init_df(self):
         if self.spec_features:
             df = pandas.DataFrame(self.spec_features, columns=["_md"])
             md = df["_md"]
@@ -129,3 +138,120 @@ class Generator:
                 )[0]
             )
             self.df = df.sort_values(["type", "method"]).set_index(["type", "method"])
+
+    def annotate_params(self):
+        def parse_params(rp, p, schema):
+            if p in schema["definitions"]:
+                return schema["definitions"][p]
+            if rp in ["void", "none"]:
+                return {"type": "null"}
+            if rp in ["'any'"]:
+                return {}
+            return None
+
+        if self.df is not None:
+            self.df["params"] = self.df["_raw_params"].apply(
+                lambda rp: (re.findall(r"`(.*?)`", rp) or [None])[0]
+            )
+
+            self.df["params_schema"] = [
+                parse_params(row["_raw_params"], row["params"], self.naive_schema)
+                for row in self.df[["_raw_params", "params"]].to_dict(orient="records")
+            ]
+            print("with annotated params:")
+            print(self.df)
+
+    def annotate_results(self):
+        def parse_results(rr):
+            if rr in [None]:
+                return rr
+            r = (
+                rr.replace("defined as follows:", "")
+                .replace("`", "")
+                .replace("the selected", "")
+                .replace(r"\|", "|")
+                .replace("An array of DocumentLink", "DocumentLink[]")
+            )
+            r = re.sub(r"\[(.*?)\]\(#.+\)", "\\1", r).strip()
+            for splitter in [" where ", " describing ", " as defined ", ". ", " if "]:
+                r = r.split(splitter)[0].strip()
+            if r.endswith("."):
+                r = r[:-1]
+            return r
+
+        if self.df is not None:
+            self.df["result"] = self.df["_raw_result"].apply(
+                lambda rr: parse_results(rr)
+            )
+            print("with annotated results:")
+            print(self.df)
+
+    def annotate_result_schema(self):
+        def result_to_schema(r, schema):  # pragma: no cover
+            if not r:
+                return r
+            opts = []
+            if r in ["void", "void."]:
+                return {"type": "null"}
+
+            for sr in [sr.strip() for sr in r.split(r"\|")]:
+                is_arr = False
+                if sr.endswith("[]"):
+                    is_arr = True
+                    sr = sr[:-2]
+                if sr.startswith("null"):
+                    sr = {"type": "null"}
+                elif sr.startswith("void"):
+                    sr = {"type": "null"}
+                elif sr in schema["definitions"]:
+                    sr = {"$ref": f"#/definitions/{sr}"}
+                    if is_arr:
+                        sr = {"type": "array", "items": sr}
+                opts += [sr]
+            if str in [type(sr) for sr in opts]:
+                print(r)
+                print(f"\t{opts}")
+                return None
+            return {"oneOf": opts}
+
+        if self.df is not None:
+            self.df["result_schema"] = self.df["result"].apply(
+                lambda rr: result_to_schema(rr, self.naive_schema)
+            )
+            print("with annotated result_schema:")
+            print(self.df[["result"]])
+
+    def check_results(self):
+        assert self.df is not None
+        check = self.df[self.df["result"].apply(lambda x: x is None)][
+            ~self.df["_raw_result"].isnull()
+        ][["_raw_result", "result"]]
+        assert check.shape[0] == 0, "unparsed results"
+
+    def annotate_method_titles(self):
+        def method_title(m):
+            name = "".join([b[0].upper() + b[1:] for b in m.split("/") if b != "$"])
+            return name
+
+        if self.df is not None:
+            self.df["ns_title"] = list(
+                self.df.reset_index()["method"].apply(method_title)
+            )
+
+            print("With method titles:")
+            print(self.df[["ns_title"]])
+
+    def annotate_result_titles(self):
+        def ns_result(r):
+            if r is None:
+                return None
+            try:
+                r = re.sub(r"\b([A-Z])", "proto.\\1", r)
+            except Exception as err:  # pragma: no cover
+                print(err, r)
+            return r
+
+        if self.df is not None:
+            self.df["ns_result"] = self.df["result"].apply(ns_result)
+            print("With result titles:")
+            print(self.df[["ns_title"]])

@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import click
@@ -16,5 +17,4 @@ def cli(workdir: Path, output: Path) -> int:
     """ lsp-json-schema
     """
     gen = Generator(workdir=workdir, output=output)
-    gen.generate()
-    return 0
+    sys.exit(gen.generate())
