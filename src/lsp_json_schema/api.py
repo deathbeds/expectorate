@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional, Text
 
 from . import constants
-from .utils import add_npm_packages, ensure_repo
+from .utils import ensure_js_package, ensure_repo
 
 # import jinja2
 # import jsonschema
@@ -31,10 +31,13 @@ class Generator:
 
     raw_spec: Optional[Text] = None
 
+    prettier_version = constants.PRETTIER_VERSION
+    tssg_version = constants.TSSG_VERSION
+
     def generate(self) -> int:
         self.ensure_repos()
         self.parse_spec()
-        self.install_js_deps()
+        self.ensure_js_deps()
         return 0
 
     def ensure_repos(self):
@@ -55,6 +58,9 @@ class Generator:
             )
             self.raw_spec = spec_md.read_text()
 
-    def install_js_deps(self):
+    def ensure_js_deps(self):
         if self.vlspn_dir is not None:
-            add_npm_packages(self.vlspn_dir, "ts-json-schema-generator", "prettier")
+            ensure_js_package(
+                self.vlspn_dir, "ts-json-schema-generator", self.tssg_version
+            )
+            ensure_js_package(self.vlspn_dir, "prettier", self.prettier_version)
