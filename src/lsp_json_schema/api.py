@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Text
 
 import jinja2
+import jsonschema
 import pandas
 import pyemojify
 
 from . import constants
 from .utils import ensure_js_package, ensure_repo
 
-# import jsonschema
 # import pytest
 # import yaml
 
@@ -67,6 +67,12 @@ class Generator:
         self.write_protocol_schema_ts()
         self.build_synthetic_schema()
 
+        # post-test
+        self.validate_synthetic_schema()
+        self.annotate_params_schema()
+        self.reannotate_result_schema()
+        self.validate_final_schema()
+
         return 0
 
     def ensure_repos(self):
@@ -92,6 +98,10 @@ class Generator:
             ensure_js_package(self.vlspn_dir, constants.TSSG, self.tssg_version)
             ensure_js_package(self.vlspn_dir, "prettier", self.prettier_version)
 
+    @property
+    def naive_schema_path(self) -> Path:
+        return self.output / f"lsp.{self.lsp_spec_version}.naive.schema.json"
+
     def build_naive_schema(self):
         assert self.vlspn_dir is not None
         proto = self.vlspn_dir / "protocol"
@@ -109,7 +119,7 @@ class Generator:
         )
         if not self.output.exists():
             self.output.mkdir(parents=True)
-        (self.output / "naive.schema.json").write_text(
+        self.naive_schema_path.write_text(
             json.dumps(self.naive_schema, indent=2, sort_keys=True)
         )
 
@@ -287,6 +297,10 @@ class Generator:
         )
         subprocess.check_call([*self.vlspn_bin("prettier"), "--write", out])
 
+    @property
+    def synthetic_schema_path(self) -> Path:
+        return self.output / f"lsp.{self.lsp_spec_version}.synthetic.schema.json"
+
     def build_synthetic_schema(self):
         assert self.vlspn_dir is not None
         proto = self.vlspn_dir / "protocol"
@@ -304,6 +318,53 @@ class Generator:
                 cwd=proto,
             ).decode("utf-8")
         )
-        (self.output / "synthetic.schema.json").write_text(
+        self.synthetic_schema_path.write_text(
             json.dumps(self.naive_schema, indent=2, sort_keys=True)
         )
+
+    def validate_synthetic_schema(self):
+        jsonschema.validators.Draft7Validator(self.synthetic_schema)
+
+    def annotate_params_schema(self):
+        assert self.df is not None
+        assert self.synthetic_schema is not None
+
+        self.df["params_schema"] = self.df["ns_title"].apply(
+            lambda x: self.synthetic_schema["definitions"][f"_{x}Request"][
+                "properties"
+            ]["params"]
+            if f"_{x}Request" in self.synthetic_schema["definitions"]
+            else None
+        )
+        print("final params schema:")
+        print(self.df[["params", "params_schema"]])
+
+    def reannotate_result_schema(self):
+        assert self.df is not None
+        assert self.synthetic_schema is not None
+
+        self.df["result_schema"] = self.df["ns_title"].apply(
+            lambda x: self.synthetic_schema["definitions"][f"_{x}Response"][
+                "properties"
+            ]["result"]
+            if f"_{x}Response" in self.synthetic_schema["definitions"]
+            else None
+        )
+        print("final result schema:")
+        print(self.df[["result", "result_schema"]])
+
+    def validate_final_schema(self):
+        assert self.df is not None
+        missing_params = self.df[self.df["params_schema"].isnull()][
+            ["_raw_params", "params", "params_schema"]
+        ]
+        missing_results = self.df[self.df["result"].isnull()][
+            ~self.df["_raw_result"].isnull()
+        ][["_raw_result", "result", "result_schema"]]
+
+        print("missing params:")
+        print(missing_params)
+        print("missing results:")
+        print(missing_results)
+
+        assert not len(missing_params) and not len(missing_results)

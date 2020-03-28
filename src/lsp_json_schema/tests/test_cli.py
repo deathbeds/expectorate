@@ -22,4 +22,4 @@ def test_cli_default(tmp_path: Path):
     assert result.exit_code == 0, result.__dict__
     assert (workdir / "language-server-protocol").exists()
     assert (workdir / "vscode-languageserver-node").exists()
-    assert (output / "synthetic.schema.json").exists()
+    assert (output / "lsp.3.14.synthetic.schema.json").exists()
