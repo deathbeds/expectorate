@@ -1,10 +1,5 @@
 # import copy
 # import json
-# import jinja2
-# import jsonschema
-# import pytest
-# import yaml
-
 import json
 import re
 import subprocess
@@ -12,11 +7,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Text
 
+import jinja2
 import pandas
 import pyemojify
 
 from . import constants
 from .utils import ensure_js_package, ensure_repo
+
+# import jsonschema
+# import pytest
+# import yaml
 
 
 @dataclass
@@ -38,9 +38,17 @@ class Generator:
     tssg_version = constants.TSSG_VERSION
 
     raw_spec: Optional[Text] = None
-    naive_schema: Optional[Dict[Text, Any]] = None
+
     spec_features: Optional[List[Text]] = None
+
+    naive_schema: Optional[Dict[Text, Any]] = None
+    synthetic_schema: Optional[Dict[Text, Any]] = None
+
     df: Optional[pandas.DataFrame] = None
+
+    def vlspn_bin(self, cmd: Text) -> List[Text]:
+        assert self.vlspn_dir is not None
+        return ["node", str(self.vlspn_dir / "node_modules" / ".bin" / cmd)]
 
     def generate(self) -> int:
         self.ensure_repos()
@@ -56,6 +64,8 @@ class Generator:
         self.check_results()
         self.annotate_method_titles()
         self.annotate_result_titles()
+        self.write_protocol_schema_ts()
+        self.build_synthetic_schema()
 
         return 0
 
@@ -83,63 +93,69 @@ class Generator:
             ensure_js_package(self.vlspn_dir, "prettier", self.prettier_version)
 
     def build_naive_schema(self):
-        if self.vlspn_dir is not None:
-            proto = self.vlspn_dir / "protocol"
-            self.naive_schema = json.loads(
-                subprocess.check_output(
-                    [
-                        "node",
-                        self.vlspn_dir / "node_modules" / ".bin" / constants.TSSG,
-                        "--path",
-                        proto / "src" / "protocol.ts",
-                        "--expose",
-                        "all",
-                    ],
-                    cwd=proto,
-                ).decode("utf-8")
-            )
+        assert self.vlspn_dir is not None
+        proto = self.vlspn_dir / "protocol"
+        self.naive_schema = json.loads(
+            subprocess.check_output(
+                [
+                    *self.vlspn_bin(constants.TSSG),
+                    "--path",
+                    proto / "src" / "protocol.ts",
+                    "--expose",
+                    "all",
+                ],
+                cwd=proto,
+            ).decode("utf-8")
+        )
+        if not self.output.exists():
+            self.output.mkdir(parents=True)
+        (self.output / "naive.schema.json").write_text(
+            json.dumps(self.naive_schema, indent=2, sort_keys=True)
+        )
 
     def extract_spec_features(self):
-        if self.raw_spec:
-            self.spec_features = (
-                self.raw_spec.split("#### $ Notifications and Requests")[1]
-                .split("### Implementation considerations")[0]
-                .split("#### <a href")[1:]
-            )
+        assert self.raw_spec
+
+        self.spec_features = (
+            self.raw_spec.split("#### $ Notifications and Requests")[1]
+            .split("### Implementation considerations")[0]
+            .split("#### <a href")[1:]
+        )
 
     def init_df(self):
-        if self.spec_features:
-            df = pandas.DataFrame(self.spec_features, columns=["_md"])
-            md = df["_md"]
-            df["method"] = md.apply(
-                lambda md: re.findall(r"""\* method: '(.*)'""", md)[0]
+        assert self.spec_features
+
+        df = pandas.DataFrame(self.spec_features, columns=["_md"])
+        md = df["_md"]
+        df["method"] = md.apply(lambda md: re.findall(r"""\* method: '(.*)'""", md)[0])
+        df["_raw_params"] = md.apply(
+            lambda md: re.findall(r"""\* params: (.*)""", md)[0]
+        )
+        df["title"] = md.apply(
+            lambda md: md.split(">")[1].split("<")[0].strip().split("(")[0].strip()
+        )
+        df["type"] = md.apply(
+            lambda md: pyemojify.emojify(
+                md.split(">")[1].split("<")[0].strip().split("(")[1]
             )
-            df["_raw_params"] = md.apply(
-                lambda md: re.findall(r"""\* params: (.*)""", md)[0]
-            )
-            df["title"] = md.apply(
-                lambda md: md.split(">")[1].split("<")[0].strip().split("(")[0].strip()
-            )
-            df["type"] = md.apply(
-                lambda md: pyemojify.emojify(
-                    md.split(">")[1].split("<")[0].strip().split("(")[1]
-                )
-                .replace(")", "")
-                .strip()
-            )
-            df["_raw_result"] = md.apply(
-                lambda md: (
-                    re.findall(r"""\* result: (.*)""", md, flags=re.M | re.I) or [None]
-                )[0]
-            )
-            df["_raw_error"] = md.apply(
-                lambda md: (
-                    re.findall(r"""\* error: (.*)""", md, flags=re.M | re.I) or [None]
-                )[0]
-            )
-            self.df = df.sort_values(["type", "method"]).set_index(["type", "method"])
+            .replace(")", "")
+            .strip()
+        )
+        df["_raw_result"] = md.apply(
+            lambda md: (
+                re.findall(r"""\* result: (.*)""", md, flags=re.M | re.I) or [None]
+            )[0]
+        )
+        df["_raw_error"] = md.apply(
+            lambda md: (
+                re.findall(r"""\* error: (.*)""", md, flags=re.M | re.I) or [None]
+            )[0]
+        )
+        self.df = df.sort_values(["type", "method"]).set_index(["type", "method"])
 
     def annotate_params(self):
+        assert self.df is not None
+
         def parse_params(rp, p, schema):
             if p in schema["definitions"]:
                 return schema["definitions"][p]
@@ -149,19 +165,20 @@ class Generator:
                 return {}
             return None
 
-        if self.df is not None:
-            self.df["params"] = self.df["_raw_params"].apply(
-                lambda rp: (re.findall(r"`(.*?)`", rp) or [None])[0]
-            )
+        self.df["params"] = self.df["_raw_params"].apply(
+            lambda rp: (re.findall(r"`(.*?)`", rp) or [None])[0]
+        )
 
-            self.df["params_schema"] = [
-                parse_params(row["_raw_params"], row["params"], self.naive_schema)
-                for row in self.df[["_raw_params", "params"]].to_dict(orient="records")
-            ]
-            print("with annotated params:")
-            print(self.df)
+        self.df["params_schema"] = [
+            parse_params(row["_raw_params"], row["params"], self.naive_schema)
+            for row in self.df[["_raw_params", "params"]].to_dict(orient="records")
+        ]
+        print("with annotated params:")
+        print(self.df)
 
     def annotate_results(self):
+        assert self.df is not None
+
         def parse_results(rr):
             if rr in [None]:
                 return rr
@@ -179,14 +196,13 @@ class Generator:
                 r = r[:-1]
             return r
 
-        if self.df is not None:
-            self.df["result"] = self.df["_raw_result"].apply(
-                lambda rr: parse_results(rr)
-            )
-            print("with annotated results:")
-            print(self.df)
+        self.df["result"] = self.df["_raw_result"].apply(lambda rr: parse_results(rr))
+        print("with annotated results:")
+        print(self.df)
 
     def annotate_result_schema(self):
+        assert self.df is not None
+
         def result_to_schema(r, schema):  # pragma: no cover
             if not r:
                 return r
@@ -214,12 +230,11 @@ class Generator:
                 return None
             return {"oneOf": opts}
 
-        if self.df is not None:
-            self.df["result_schema"] = self.df["result"].apply(
-                lambda rr: result_to_schema(rr, self.naive_schema)
-            )
-            print("with annotated result_schema:")
-            print(self.df[["result"]])
+        self.df["result_schema"] = self.df["result"].apply(
+            lambda rr: result_to_schema(rr, self.naive_schema)
+        )
+        print("with annotated result_schema:")
+        print(self.df[["result"]])
 
     def check_results(self):
         assert self.df is not None
@@ -229,29 +244,66 @@ class Generator:
         assert check.shape[0] == 0, "unparsed results"
 
     def annotate_method_titles(self):
+        assert self.df is not None
+
         def method_title(m):
             name = "".join([b[0].upper() + b[1:] for b in m.split("/") if b != "$"])
             return name
 
-        if self.df is not None:
-            self.df["ns_title"] = list(
-                self.df.reset_index()["method"].apply(method_title)
-            )
+        self.df["ns_title"] = list(self.df.reset_index()["method"].apply(method_title))
 
-            print("With method titles:")
-            print(self.df[["ns_title"]])
+        print("With method titles:")
+        print(self.df[["ns_title"]])
+
+    def ns_result(self, r: Text) -> Text:
+        if r is None:
+            return None
+        try:
+            r = re.sub(r"\b([A-Z])", "proto.\\1", r)
+        except Exception as err:  # pragma: no cover
+            print(err, r)
+        return r
 
     def annotate_result_titles(self):
-        def ns_result(r):
-            if r is None:
-                return None
-            try:
-                r = re.sub(r"\b([A-Z])", "proto.\\1", r)
-            except Exception as err:  # pragma: no cover
-                print(err, r)
-            return r
+        assert self.df is not None
+        self.df["ns_result"] = self.df["result"].apply(self.ns_result)
+        print("With result titles:")
+        print(self.df[["ns_title"]])
 
-        if self.df is not None:
-            self.df["ns_result"] = self.df["result"].apply(ns_result)
-            print("With result titles:")
-            print(self.df[["ns_title"]])
+    def write_protocol_schema_ts(self):
+        assert self.df is not None
+        assert self.vlspn_dir is not None
+        tmpl = jinja2.Template(
+            (Path(__file__).parent / "templates" / "protocol-schema.ts.j2").read_text()
+        )
+
+        out = self.vlspn_dir / "protocol" / "src" / "protocol-schema.ts"
+
+        out.write_text(
+            tmpl.render(
+                rows=self.df.reset_index().to_dict(orient="records"),
+                ns_result=self.ns_result,
+            )
+        )
+        subprocess.check_call([*self.vlspn_bin("prettier"), "--write", out])
+
+    def build_synthetic_schema(self):
+        assert self.vlspn_dir is not None
+        proto = self.vlspn_dir / "protocol"
+        self.synthetic_schema = json.loads(
+            subprocess.check_output(
+                [
+                    *self.vlspn_bin(constants.TSSG),
+                    "--path",
+                    proto / "src" / "protocol-schema.ts",
+                    "--expose",
+                    "all",
+                    "--type",
+                    "_AnyFeature",
+                ],
+                cwd=proto,
+            ).decode("utf-8")
+        )
+        (self.output / "synthetic.schema.json").write_text(
+            json.dumps(self.naive_schema, indent=2, sort_keys=True)
+        )

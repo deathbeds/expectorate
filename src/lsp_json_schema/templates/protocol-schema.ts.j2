@@ -28,7 +28,7 @@ export type _AnyRequest = {% for row in rows %}
     | {{ request(row) }}{% endfor %};
 
 export type _AnyResponse = {% for row in rows %}
-    {% if row.result %}| {{ result(row) }}{% endif %}{% endfor %};
+    {% if row.result and row.result != 'void' %}| {{ result(row) }}{% endif %}{% endfor %};
 
 {% for row in rows %}
 export interface {{ request(row) }} extends RequestMessage {
@@ -38,7 +38,7 @@ export interface {{ request(row) }} extends RequestMessage {
     {%- endif %}
 }
 
-{% if row.result %}
+{% if row.result and row.result != 'void' %}
 export interface {{ result(row) }} extends Omit<ResponseMessage, 'error'> {
     result: {{ row.ns_result }};
 }
@@ -46,7 +46,7 @@ export interface {{ result(row) }} extends Omit<ResponseMessage, 'error'> {
 
 export interface {{ feature(row) }} {
     request: {{ request(row) }};
-    {% if row.result %}response: {{ result(row) }} | _ErrorResponse;
+    {% if row.result and row.result != 'void' %}response: {{ result(row) }} | _ErrorResponse;
     {% endif %}
 }
 {% endfor %}

@@ -1,5 +1,5 @@
 __pycache__/
-.coverage
+.coverage*
 .ipynb_checkpoints/
 .mypy_cache/
 *.egg-info/
@@ -7,4 +7,5 @@ build/
 dist/
 envs/
 lib/
+output/
 work/
