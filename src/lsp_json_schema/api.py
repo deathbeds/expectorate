@@ -1,21 +1,22 @@
 # import copy
 # import json
-# import re
+# import jinja2
+# import jsonschema
+# import pytest
+# import yaml
+
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Text
 
+import pandas
+import pyemojify
+
 from . import constants
 from .utils import ensure_js_package, ensure_repo
-
-# import jinja2
-# import jsonschema
-# import pandas
-# import pyemojify
-# import pytest
-# import yaml
 
 
 @dataclass
@@ -39,6 +40,7 @@ class Generator:
     raw_spec: Optional[Text] = None
     naive_schema: Optional[Dict[Text, Any]] = None
     spec_features: Optional[List[Text]] = None
+    df: Optional[pandas.DataFrame] = None
 
     def generate(self) -> int:
         self.ensure_repos()
@@ -46,6 +48,7 @@ class Generator:
         self.ensure_js_deps()
         self.build_naive_schema()
         self.extract_spec_features()
+        self.df_part_one()
         return 0
 
     def ensure_repos(self):
@@ -89,8 +92,40 @@ class Generator:
 
     def extract_spec_features(self):
         if self.raw_spec:
-            self.md_features = (
+            self.spec_features = (
                 self.raw_spec.split("#### $ Notifications and Requests")[1]
                 .split("### Implementation considerations")[0]
                 .split("#### <a href")[1:]
             )
+
+    def df_part_one(self):
+        if self.spec_features:
+            df = pandas.DataFrame(self.spec_features, columns=["_md"])
+            md = df["_md"]
+            df["method"] = md.apply(
+                lambda md: re.findall(r"""\* method: '(.*)'""", md)[0]
+            )
+            df["_raw_params"] = md.apply(
+                lambda md: re.findall(r"""\* params: (.*)""", md)[0]
+            )
+            df["title"] = md.apply(
+                lambda md: md.split(">")[1].split("<")[0].strip().split("(")[0].strip()
+            )
+            df["type"] = md.apply(
+                lambda md: pyemojify.emojify(
+                    md.split(">")[1].split("<")[0].strip().split("(")[1]
+                )
+                .replace(")", "")
+                .strip()
+            )
+            df["_raw_result"] = md.apply(
+                lambda md: (
+                    re.findall(r"""\* result: (.*)""", md, flags=re.M | re.I) or [None]
+                )[0]
+            )
+            df["_raw_error"] = md.apply(
+                lambda md: (
+                    re.findall(r"""\* error: (.*)""", md, flags=re.M | re.I) or [None]
+                )[0]
+            )
+            self.df = df.sort_values(["type", "method"]).set_index(["type", "method"])
