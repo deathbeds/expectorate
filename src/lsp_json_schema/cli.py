@@ -11,9 +11,10 @@ from .api import Generator
 @click.command()
 @click.version_option(__version__)
 @click.option("--workdir", "-w", default=Path.cwd() / "work", type=Path)
-def cli(workdir: Path) -> int:
+@click.option("--output", "-o", default=Path.cwd() / "output", type=Path)
+def cli(workdir: Path, output: Path) -> int:
     """ lsp-json-schema
     """
-    gen = Generator(workdir=Path(workdir))
+    gen = Generator(workdir=workdir, output=output)
     gen.generate()
     return 0

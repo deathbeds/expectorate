@@ -1,9 +1,11 @@
 # import copy
 # import json
 # import re
+import json
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Text
+from typing import Any, Dict, Optional, Text
 
 from . import constants
 from .utils import ensure_js_package, ensure_repo
@@ -19,6 +21,8 @@ from .utils import ensure_js_package, ensure_repo
 @dataclass
 class Generator:
     workdir: Path
+    output: Path
+
     lsp_dir: Optional[Path] = None
     vlspn_dir: Optional[Path] = None
 
@@ -29,15 +33,17 @@ class Generator:
     vlspn_repo = constants.VLSPN_REPO
     vlspn_committish = constants.VLSPN_COMMIT
 
-    raw_spec: Optional[Text] = None
-
     prettier_version = constants.PRETTIER_VERSION
     tssg_version = constants.TSSG_VERSION
+
+    raw_spec: Optional[Text] = None
+    naive_schema: Optional[Dict[Text, Any]] = None
 
     def generate(self) -> int:
         self.ensure_repos()
         self.parse_spec()
         self.ensure_js_deps()
+        self.build_naive_schema()
         return 0
 
     def ensure_repos(self):
@@ -60,7 +66,21 @@ class Generator:
 
     def ensure_js_deps(self):
         if self.vlspn_dir is not None:
-            ensure_js_package(
-                self.vlspn_dir, "ts-json-schema-generator", self.tssg_version
-            )
+            ensure_js_package(self.vlspn_dir, constants.TSSG, self.tssg_version)
             ensure_js_package(self.vlspn_dir, "prettier", self.prettier_version)
+
+    def build_naive_schema(self):
+        proto = self.vlspn_dir / "protocol"
+        self.naive_schema = json.loads(
+            subprocess.check_output(
+                [
+                    "node",
+                    self.vlspn_dir / "node_modules" / ".bin" / constants.TSSG,
+                    "--path",
+                    proto / "src" / "protocol.ts",
+                    "--expose",
+                    "all",
+                ],
+                cwd=proto,
+            ).decode("utf-8")
+        )
