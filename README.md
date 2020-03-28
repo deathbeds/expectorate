@@ -1,6 +1,6 @@
 # lsp-json-schema
 
-_Generates JSON Schema from the Language Server Protocol spec and reference implementation_
+_Generates JSON Schema from specs the Language Server Protocol spec and reference implementations_
 
 > See original [gist](https://gist.github.com/bollwyvl/7a128978b8ae89ab02bbd5b84d07a4b7)
 
