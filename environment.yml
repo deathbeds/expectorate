@@ -1,0 +1,22 @@
+name: lsp-json-schema
+
+channels:
+  - conda-forge
+
+dependencies:
+  - black
+  - click
+  - git
+  - hypothesis
+  - hypothesis-jsonschema
+  - isort
+  - jupyterlab ==2.0.1
+  - mypy
+  - nodejs
+  - pandas
+  - pip
+  - pyemojify
+  - pytest
+  - python >=3.8,<3.9.0a0
+  - pyyaml
+  - yarn

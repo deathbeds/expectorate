@@ -1,0 +1,27 @@
+name: lsp-json-schema
+
+commands:
+  setup:
+    unix: python -m pip install -e .
+
+env_specs:
+  lsp-json-schema:
+    channels:
+      - conda-forge
+    packages:
+      - black
+      - click
+      - git
+      - hypothesis
+      - hypothesis-jsonschema
+      - isort
+      - jupyterlab ==2.0.1
+      - mypy
+      - nodejs
+      - pandas
+      - pip
+      - pyemojify
+      - pytest
+      - python >=3.8,<3.9.0a0
+      - pyyaml
+      - yarn
