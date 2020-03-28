@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional, Text
 
 from . import constants
-from .utils import ensure_repo
+from .utils import add_npm_packages, ensure_repo
 
 # import jinja2
 # import jsonschema
@@ -34,6 +34,7 @@ class Generator:
     def generate(self) -> int:
         self.ensure_repos()
         self.parse_spec()
+        self.install_js_deps()
         return 0
 
     def ensure_repos(self):
@@ -46,11 +47,14 @@ class Generator:
         )
 
     def parse_spec(self):
-        if self.lsp_dir is None:
-            raise ValueError
-        spec_md = (
-            self.lsp_dir
-            / "_specifications"
-            / f"""specification-{self.lsp_spec_version.replace('.', '-')}.md"""
-        )
-        self.raw_spec = spec_md.read_text()
+        if self.lsp_dir is not None:
+            spec_md = (
+                self.lsp_dir
+                / "_specifications"
+                / f"""specification-{self.lsp_spec_version.replace('.', '-')}.md"""
+            )
+            self.raw_spec = spec_md.read_text()
+
+    def install_js_deps(self):
+        if self.vlspn_dir is not None:
+            add_npm_packages(self.vlspn_dir, "ts-json-schema-generator", "prettier")

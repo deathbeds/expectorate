@@ -13,3 +13,8 @@ def ensure_repo(workdir: Path, repo_url: Text, committish: Text) -> Path:
     subprocess.check_call(["git", "checkout", "-f", committish], cwd=repo_dir)
 
     return repo_dir
+
+
+def add_npm_packages(root: Path, *specs: Text) -> None:
+    subprocess.check_call(["npm", "install", "--save", "--only=dev", *specs], cwd=root)
+    subprocess.check_call(["npm", "install"], cwd=root)
