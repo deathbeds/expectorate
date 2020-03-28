@@ -5,7 +5,7 @@ import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Text
+from typing import Any, Dict, List, Optional, Text
 
 from . import constants
 from .utils import ensure_js_package, ensure_repo
@@ -38,12 +38,14 @@ class Generator:
 
     raw_spec: Optional[Text] = None
     naive_schema: Optional[Dict[Text, Any]] = None
+    spec_features: Optional[List[Text]] = None
 
     def generate(self) -> int:
         self.ensure_repos()
         self.parse_spec()
         self.ensure_js_deps()
         self.build_naive_schema()
+        self.extract_spec_features()
         return 0
 
     def ensure_repos(self):
@@ -84,3 +86,11 @@ class Generator:
                 cwd=proto,
             ).decode("utf-8")
         )
+
+    def extract_spec_features(self):
+        if self.raw_spec:
+            self.md_features = (
+                self.raw_spec.split("#### $ Notifications and Requests")[1]
+                .split("### Implementation considerations")[0]
+                .split("#### <a href")[1:]
+            )
