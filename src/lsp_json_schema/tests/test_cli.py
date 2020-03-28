@@ -13,6 +13,12 @@ def test_version():
     assert result.output.strip().endswith(__version__)
 
 
+def assert_generated(workdir: Path, output: Path, version="3.14"):
+    assert (workdir / "language-server-protocol").exists()
+    assert (workdir / "vscode-languageserver-node").exists()
+    assert (output / "lsp.3.14.synthetic.schema.json").exists()
+
+
 def test_cli_default(tmp_path: Path):
     runner = CliRunner()
     workdir = tmp_path / "work"
@@ -20,6 +26,4 @@ def test_cli_default(tmp_path: Path):
     args = ["--workdir", str(workdir), "--output", str(output)]
     result = runner.invoke(cli, args, catch_exceptions=False)
     assert result.exit_code == 0, result.__dict__
-    assert (workdir / "language-server-protocol").exists()
-    assert (workdir / "vscode-languageserver-node").exists()
-    assert (output / "lsp.3.14.synthetic.schema.json").exists()
+    assert_generated(workdir, output)

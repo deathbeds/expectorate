@@ -1,5 +1,3 @@
-# import copy
-# import json
 import json
 import re
 import subprocess
@@ -15,9 +13,6 @@ import pyemojify
 from . import constants
 from .utils import ensure_js_package, ensure_repo
 
-# import pytest
-# import yaml
-
 
 @dataclass
 class Generator:
@@ -27,15 +22,16 @@ class Generator:
     lsp_dir: Optional[Path] = None
     vlspn_dir: Optional[Path] = None
 
-    lsp_repo = constants.LSP_REPO
-    lsp_committish = constants.LSP_COMMIT
-    lsp_spec_version = constants.LSP_SPEC_VERSION
+    lsp_spec_version: Text = constants.LSP_SPEC_VERSION
 
-    vlspn_repo = constants.VLSPN_REPO
-    vlspn_committish = constants.VLSPN_COMMIT
+    lsp_repo: Text = constants.LSP_REPO
+    lsp_committish: Text = constants.LSP_COMMIT
 
-    prettier_version = constants.PRETTIER_VERSION
-    tssg_version = constants.TSSG_VERSION
+    vlspn_repo: Text = constants.VLSPN_REPO
+    vlspn_committish: Text = constants.VLSPN_COMMIT
+
+    prettier_version: Text = constants.PRETTIER_VERSION
+    tssg_version: Text = constants.TSSG_VERSION
 
     raw_spec: Optional[Text] = None
 
