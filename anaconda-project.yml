@@ -6,7 +6,7 @@ commands:
   test:
     unix: pytest
   lint:
-    unix: black src && isort -rc src
+    unix: black src --quiet && isort -rc src && flake8 src
 
 env_specs:
   lsp-json-schema:
