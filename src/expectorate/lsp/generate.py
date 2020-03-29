@@ -12,7 +12,7 @@ import pyemojify
 
 from . import constants
 from .conventions import CONVENTIONS, SpecConvention
-from .utils import ensure_js_package, ensure_repo
+from ..utils import ensure_js_package, ensure_repo
 
 
 @dataclass
