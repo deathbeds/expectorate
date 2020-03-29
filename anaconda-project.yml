@@ -32,7 +32,7 @@ env_specs:
       - pytest-flake8
       - pytest-mypy
       - python >=3.8,<3.9.0a0
-      - pyyaml
+      - ruamel.yaml
       - yarn
       - pip:
         - pytest-black
