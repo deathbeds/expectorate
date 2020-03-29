@@ -33,11 +33,13 @@ def lsp(
         CONVENTIONS.get(lsp_spec_version) or CONVENTIONS[constants.LSP_SPEC_VERSION]
     )
 
-    assert lsp_spec
-    assert ctx.obj.workdir
-    assert ctx.obj.output
+    assert lsp_spec, f"Couldn't find spec {lsp_spec_version}"
+    assert ctx.obj.workdir, "Need a working directory"
+    assert ctx.obj.output, "Need an output directory"
+    assert ctx.obj.log, "Need a log"
 
     gen = SpecGenerator(
+        log=ctx.obj.log,
         workdir=ctx.obj.workdir,
         output=ctx.obj.output,
         lsp_spec=lsp_spec,

@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import subprocess
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from .conventions import CONVENTIONS, SpecConvention
 class SpecGenerator:
     workdir: Path
     output: Path
+    log: logging.Logger
 
     lsp_dir: Optional[Path] = None
     vlspn_dir: Optional[Path] = None
@@ -147,10 +149,11 @@ class SpecGenerator:
 
         df["method"] = md.apply(_find_method)
 
-        print("dropping non-methods:")
-        print(df[pandas.isna(df["method"])])
-
-        df = df[pandas.notna(df["method"])]
+        not_methods = df[pandas.isna(df["method"])]
+        if len(not_methods) > 0:
+            self.log.warning("dropping %s non-methods:", len(not_methods))
+            self.log.warning(not_methods)
+            df = df[pandas.notna(df["method"])]
 
         df["_raw_params"] = md.apply(
             lambda md: (re.findall(r"""\* params: (.*)""", md) or [None])[0]
@@ -204,8 +207,8 @@ class SpecGenerator:
             parse_params(row["_raw_params"], row["params"], self.naive_schema)
             for row in self.df[["_raw_params", "params"]].to_dict(orient="records")
         ]
-        print("with annotated params:")
-        print(self.df)
+        self.log.debug("with annotated params:")
+        self.log.debug(self.df)
 
     def annotate_results(self):
         assert self.df is not None
@@ -228,8 +231,8 @@ class SpecGenerator:
             return r
 
         self.df["result"] = self.df["_raw_result"].apply(lambda rr: parse_results(rr))
-        print("with annotated results:")
-        print(self.df)
+        self.log.debug("with annotated results:")
+        self.log.debug(self.df)
 
     def annotate_result_schema(self):
         assert self.df is not None
@@ -256,16 +259,16 @@ class SpecGenerator:
                         sr = {"type": "array", "items": sr}
                 opts += [sr]
             if str in [type(sr) for sr in opts]:
-                print(r)
-                print(f"\t{opts}")
+                self.log.warning(r)
+                self.log.warning(f"\t{opts}")
                 return None
             return {"oneOf": opts}
 
         self.df["result_schema"] = self.df["result"].apply(
             lambda rr: result_to_schema(rr, self.naive_schema)
         )
-        print("with annotated result_schema:")
-        print(self.df[["result"]])
+        self.log.debug("with annotated result_schema:")
+        self.log.debug(self.df[["result"]])
 
     def check_results(self):
         assert self.df is not None
@@ -283,8 +286,8 @@ class SpecGenerator:
 
         self.df["ns_title"] = list(self.df.reset_index()["method"].apply(method_title))
 
-        print("With method titles:")
-        print(self.df[["ns_title"]])
+        self.log.debug("With method titles:")
+        self.log.debug(self.df[["ns_title"]])
 
     def ns_result(self, r: Text) -> Text:
         if r is None:
@@ -292,14 +295,14 @@ class SpecGenerator:
         try:
             r = re.sub(r"\b([A-Z])", "proto.\\1", r)
         except Exception as err:  # pragma: no cover
-            print(err, r)
+            self.log.error("Error applying namespace title: %s %s", r, err)
         return r
 
     def annotate_result_titles(self):
         assert self.df is not None
         self.df["ns_result"] = self.df["result"].apply(self.ns_result)
-        print("With result titles:")
-        print(self.df[["ns_title"]])
+        self.log.debug("With result titles:")
+        self.log.debug(self.df[["ns_title"]])
 
     def write_protocol_schema_ts(self):
         assert self.df is not None
@@ -359,8 +362,8 @@ class SpecGenerator:
             if f"_{x}Request" in self.synthetic_schema["definitions"]
             else None
         )
-        print("final params schema:")
-        print(self.df[["params", "params_schema"]])
+        self.log.debug("final params schema:")
+        self.log.debug(self.df[["params", "params_schema"]])
 
     def reannotate_result_schema(self):
         assert self.df is not None
@@ -373,8 +376,8 @@ class SpecGenerator:
             if f"_{x}Response" in self.synthetic_schema["definitions"]
             else None
         )
-        print("final result schema:")
-        print(self.df[["result", "result_schema"]])
+        self.log.debug("final result schema:")
+        self.log.debug(self.df[["result", "result_schema"]])
 
     def validate_final_schema(self):
         assert self.df is not None
@@ -385,9 +388,11 @@ class SpecGenerator:
             ~self.df["_raw_result"].isnull()
         ][["_raw_result", "result", "result_schema"]]
 
-        print("missing params:")
-        print(missing_params)
-        print("missing results:")
-        print(missing_results)
+        if len(missing_params):
+            self.log.error("missing params:")
+            self.log.error(missing_params)
+        if len(missing_results):
+            self.log.error("missing results:")
+            self.log.error(missing_results)
 
         assert not len(missing_params) and not len(missing_results)
