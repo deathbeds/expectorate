@@ -1,9 +1,15 @@
-from ..cli import cli, Context
+import sys
+from typing import Text
+
+import click
+
+from ..context import Context
+from . import constants
 from .conventions import CONVENTIONS
 from .generate import SpecGenerator
 
 
-@cli.command()
+@click.command()
 @click.pass_context
 @click.option("--lsp-spec-version", default=constants.LSP_SPEC_VERSION)
 @click.option("--lsp-repo", default=constants.LSP_REPO)
@@ -18,7 +24,9 @@ def lsp(
     vlspn_repo: Text,
     vlspn_committish: Text,
 ):
-    """ expectorate
+    """ generate a JSON schema from:
+        - Language Server Protocol (lsp) specification
+        - vscode-languageserver-node reference implementation
     """
 
     lsp_spec = (
@@ -26,10 +34,12 @@ def lsp(
     )
 
     assert lsp_spec
+    assert ctx.obj.workdir
+    assert ctx.obj.output
 
     gen = SpecGenerator(
-        workdir=ctx.workdir,
-        output=ctx.output,
+        workdir=ctx.obj.workdir,
+        output=ctx.obj.output,
         lsp_spec=lsp_spec,
         lsp_repo=lsp_repo,
         lsp_committish=lsp_committish,

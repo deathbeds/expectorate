@@ -3,8 +3,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-# from .. import constants
-from ..cli import __version__, cli
+from ..cli import cli
 
 
 def assert_generated(workdir: Path, output: Path, version="3.14"):

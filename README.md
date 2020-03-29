@@ -1,9 +1,9 @@
 # expectorate
 
-Generates JSON Schema from specs and reference implementations
+Generates JSON Schema from text specifications and reference implementations, like:
 - the Language Server Protocol spec and reference implementations
-
-> See original [gist](https://gist.github.com/bollwyvl/7a128978b8ae89ab02bbd5b84d07a4b7)
+    - See original [gist](https://gist.github.com/bollwyvl/7a128978b8ae89ab02bbd5b84d07a4b7)
+- _TODO: Jupyter Kernel Message Protocol_
 
 ## Install
 

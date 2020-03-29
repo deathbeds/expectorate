@@ -1,18 +1,10 @@
-import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Text, Optional
 
 import click
 
-from . import constants
 from ._version import __version__
-
-
-@dataclass
-class Context:
-    workdir: Optional[Path]
-    output: Optional[Path]
+from .context import Context, ExpectorateContext
+from .lsp.cli import lsp
 
 
 @click.group()
@@ -21,17 +13,14 @@ class Context:
 @click.option("--output", "-o", default=Path.cwd() / "output", type=Path)
 @click.pass_context
 def cli(
-    ctx: Context,
-    workdir: Path,
-    output: Path,
+    ctx: Context, workdir: Path, output: Path,
 ):
     """ expectorate
     """
-    ctx.ensure_object(Context)
+    ctx.ensure_object(ExpectorateContext)
 
-    ctx.workdir = workdir
-    ctx.output = output
+    ctx.obj.workdir = workdir
+    ctx.obj.output = output
 
 
-# late import to avoid circular ref
-from .lsp.cli import lsp
+cli.add_command(lsp)

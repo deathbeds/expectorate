@@ -10,9 +10,9 @@ import jsonschema
 import pandas
 import pyemojify
 
+from ..utils import ensure_js_package, ensure_repo
 from . import constants
 from .conventions import CONVENTIONS, SpecConvention
-from ..utils import ensure_js_package, ensure_repo
 
 
 @dataclass
