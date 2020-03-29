@@ -11,18 +11,19 @@ import pandas
 import pyemojify
 
 from . import constants
+from .spec_compat import VERSIONS, SpecVersion
 from .utils import ensure_js_package, ensure_repo
 
 
 @dataclass
-class Generator:
+class SpecGenerator:
     workdir: Path
     output: Path
 
     lsp_dir: Optional[Path] = None
     vlspn_dir: Optional[Path] = None
 
-    lsp_spec_version: Text = constants.LSP_SPEC_VERSION
+    lsp_spec: SpecVersion = VERSIONS[constants.LSP_SPEC_VERSION]
 
     lsp_repo: Text = constants.LSP_REPO
     lsp_committish: Text = constants.LSP_COMMIT
@@ -85,7 +86,7 @@ class Generator:
             spec_md = (
                 self.lsp_dir
                 / "_specifications"
-                / f"""specification-{self.lsp_spec_version.replace('.', '-')}.md"""
+                / f"""specification-{self.lsp_spec.version.replace('.', '-')}.md"""
             )
             self.raw_spec = spec_md.read_text()
 
@@ -96,7 +97,7 @@ class Generator:
 
     @property
     def naive_schema_path(self) -> Path:
-        return self.output / f"lsp.{self.lsp_spec_version}.naive.schema.json"
+        return self.output / f"lsp.{self.lsp_spec.version}.naive.schema.json"
 
     def build_naive_schema(self):
         assert self.vlspn_dir is not None
@@ -122,31 +123,55 @@ class Generator:
     def extract_spec_features(self):
         assert self.raw_spec
 
-        self.spec_features = (
-            self.raw_spec.split("#### $ Notifications and Requests")[1]
-            .split("### Implementation considerations")[0]
-            .split("#### <a href")[1:]
-        )
+        after_notifications = self.raw_spec.split(self.lsp_spec.preamble_separator)[1]
+
+        before_implementations = after_notifications.split(
+            self.lsp_spec.epilogue_separator
+        )[0]
+
+        self.spec_features = before_implementations.split(
+            self.lsp_spec.feature_separator
+        )[1:]
 
     def init_df(self):
         assert self.spec_features
 
         df = pandas.DataFrame(self.spec_features, columns=["_md"])
         md = df["_md"]
-        df["method"] = md.apply(lambda md: re.findall(r"""\* method: '(.*)'""", md)[0])
+
+        def _find_method(md: Text):
+            try:
+                return re.findall(r"""\* method: '(.*)'""", md)[0]
+            except IndexError:
+                return None
+
+        df["method"] = md.apply(_find_method)
+
+        print("dropping non-methods:")
+        print(df[pandas.isna(df["method"])])
+
+        df = df[pandas.notna(df["method"])]
+
         df["_raw_params"] = md.apply(
-            lambda md: re.findall(r"""\* params: (.*)""", md)[0]
+            lambda md: (re.findall(r"""\* params: (.*)""", md) or [None])[0]
         )
         df["title"] = md.apply(
             lambda md: md.split(">")[1].split("<")[0].strip().split("(")[0].strip()
         )
-        df["type"] = md.apply(
-            lambda md: pyemojify.emojify(
-                md.split(">")[1].split("<")[0].strip().split("(")[1]
-            )
-            .replace(")", "")
-            .strip()
-        )
+
+        def _find_type(md: Text):
+            try:
+                return (
+                    pyemojify.emojify(
+                        md.split(">")[1].split("<")[0].strip().split("(")[1]
+                    )
+                    .replace(")", "")
+                    .strip()
+                )
+            except IndexError:
+                return None
+
+        df["type"] = md.apply(_find_type)
         df["_raw_result"] = md.apply(
             lambda md: (
                 re.findall(r"""\* result: (.*)""", md, flags=re.M | re.I) or [None]
@@ -172,7 +197,7 @@ class Generator:
             return None
 
         self.df["params"] = self.df["_raw_params"].apply(
-            lambda rp: (re.findall(r"`(.*?)`", rp) or [None])[0]
+            lambda rp: None if rp is None else (re.findall(r"`(.*?)`", rp) or [None])[0]
         )
 
         self.df["params_schema"] = [
@@ -295,7 +320,7 @@ class Generator:
 
     @property
     def synthetic_schema_path(self) -> Path:
-        return self.output / f"lsp.{self.lsp_spec_version}.synthetic.schema.json"
+        return self.output / f"lsp.{self.lsp_spec.version}.synthetic.schema.json"
 
     def build_synthetic_schema(self):
         assert self.vlspn_dir is not None
@@ -326,9 +351,11 @@ class Generator:
         assert self.synthetic_schema is not None
 
         self.df["params_schema"] = self.df["ns_title"].apply(
-            lambda x: self.synthetic_schema["definitions"][f"_{x}Request"][
-                "properties"
-            ]["params"]
+            lambda x: None
+            if x is None
+            else self.synthetic_schema["definitions"][f"_{x}Request"]["properties"][
+                "params"
+            ]
             if f"_{x}Request" in self.synthetic_schema["definitions"]
             else None
         )

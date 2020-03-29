@@ -1,6 +1,8 @@
 name: lsp-json-schema
 
 commands:
+  lab:
+    unix: jupyter lab --no-browser --debug
   setup:
     unix: python -m pip install -e .
   test:
