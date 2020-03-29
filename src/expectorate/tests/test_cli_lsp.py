@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-from click.testing import CliRunner
 
 from ..cli import cli
 
@@ -14,22 +13,11 @@ def assert_generated(workdir: Path, output: Path, version="3.14"):
     assert (output / f"lsp.{version}.synthetic.schema.json").exists()
 
 
-@pytest.fixture
-def runner_with_args_and_paths(tmp_path: Path):
-    """ wrap up some things used for click testing
-    """
-    runner = CliRunner()
-    workdir = tmp_path / "work"
-    output = tmp_path / "output"
-    args = ["--workdir", str(workdir), "--output", str(output), "lsp"]
-    return runner, args, workdir, output
-
-
 def test_lsp_cli_default(runner_with_args_and_paths):
     """ happy day, using pre-validated commits from `constants.py`
     """
     runner, args, workdir, output = runner_with_args_and_paths
-    result = runner.invoke(cli, args, catch_exceptions=False)
+    result = runner.invoke(cli, [*args, "lsp"], catch_exceptions=False)
     assert result.exit_code == 0, result.__dict__
     assert_generated(workdir, output)
 
@@ -46,7 +34,7 @@ def test_lsp_cli_args(label, extra_args, runner_with_args_and_paths):
     """ try parsing a number of combinations of relevant combinations
     """
     runner, args, workdir, output = runner_with_args_and_paths
-    final_args = [*args, *extra_args]
+    final_args = [*args, "lsp", *extra_args]
     result = runner.invoke(cli, final_args, catch_exceptions=False)
     assert result.exit_code == 0, result.__dict__
 
