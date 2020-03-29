@@ -21,7 +21,7 @@ def runner_with_args_and_paths(tmp_path: Path):
     runner = CliRunner()
     workdir = tmp_path / "work"
     output = tmp_path / "output"
-    args = ["lsp", "--workdir", str(workdir), "--output", str(output)]
+    args = ["--workdir", str(workdir), "--output", str(output), "lsp"]
     return runner, args, workdir, output
 
 
