@@ -1,16 +1,14 @@
 ---
-valid_as_definition:
-  - _AnyFeature
-  - _InitializeFeature
+feature: _InitializeFeature
 ---
 request:
   jsonrpc: "2.0"
   id: 0
   method: initialize
   params:
-    capabilities": {}
-    processId": 1
-    workspaceFolders": []
+    capabilities: {}
+    processId: 1
+    workspaceFolders: []
     rootUri: file:///
 response:
   jsonrpc: "2.0"

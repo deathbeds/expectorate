@@ -1,8 +1,10 @@
 import json
+from copy import deepcopy
 from pathlib import Path
+from typing import Any, List
 
-import jsonschema
 import pytest
+from jsonschema import Draft7Validator, ValidationError
 
 from ..cli import cli
 from .conftest import GOOD_LSP
@@ -19,14 +21,27 @@ def assert_generated(workdir: Path, output: Path, version="3.14") -> Path:
 
 
 def assert_fixtures(schema: Path):
-    validator = jsonschema.validators.Draft7Validator(json.loads(schema.read_text()))
-    errors = {}
-    for name, header_data in GOOD_LSP.items():
+    schema_dict = json.loads(schema.read_text())
+    all_validators = {"_AnyFeature": Draft7Validator(schema_dict)}
+
+    errors: List[Any] = []
+
+    for path, header_data in GOOD_LSP.items():
         header, data = header_data
-        try:
-            validator.validate(data)
-        except jsonschema.ValidationError as err:
-            errors[name] = err
+
+        feature = header["feature"]
+
+        if feature not in all_validators:
+            feature_schema = deepcopy(schema_dict)
+            feature_schema["$ref"] = f"#/definitions/{feature}"
+            all_validators[feature] = Draft7Validator(feature_schema)
+
+        for validate_feature in ["_AnyFeature", feature]:
+            try:
+                all_validators[validate_feature].validate(data)
+            except ValidationError as err:  # pragma: no cover
+                errors += [path, validate_feature, err]
+
     assert not errors
 
 
