@@ -343,7 +343,7 @@ class SpecGenerator:
             ).decode("utf-8")
         )
         self.synthetic_schema_path.write_text(
-            json.dumps(self.naive_schema, indent=2, sort_keys=True)
+            json.dumps(self.synthetic_schema, indent=2, sort_keys=True)
         )
 
     def validate_synthetic_schema(self):
