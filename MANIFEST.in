@@ -1,1 +1,1 @@
-recursive-include   src   *.js
+recursive-include  src  *.j2  *.yaml

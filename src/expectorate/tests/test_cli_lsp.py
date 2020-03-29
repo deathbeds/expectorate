@@ -1,16 +1,33 @@
+import json
 from pathlib import Path
 
+import jsonschema
 import pytest
 
 from ..cli import cli
+from .conftest import GOOD_LSP
 
 
-def assert_generated(workdir: Path, output: Path, version="3.14"):
+def assert_generated(workdir: Path, output: Path, version="3.14") -> Path:
     """ helper to check some files after running the generator
     """
     assert (workdir / "language-server-protocol").exists()
     assert (workdir / "vscode-languageserver-node").exists()
-    assert (output / f"lsp.{version}.synthetic.schema.json").exists()
+    schema = output / f"lsp.{version}.synthetic.schema.json"
+    assert schema.exists()
+    return schema
+
+
+def assert_fixtures(schema: Path):
+    validator = jsonschema.validators.Draft7Validator(json.loads(schema.read_text()))
+    errors = {}
+    for name, header_data in GOOD_LSP.items():
+        header, data = header_data
+        try:
+            validator.validate(data)
+        except jsonschema.ValidationError as err:
+            errors[name] = err
+    assert not errors
 
 
 def test_lsp_cli_default(runner_with_args_and_paths):
@@ -43,4 +60,6 @@ def test_lsp_cli_args(label, extra_args, runner_with_args_and_paths):
     if "--lsp-spec-version" in final_args:
         spec_version = final_args[final_args.index("--lsp-spec-version") + 1]
 
-    assert_generated(workdir, output, spec_version)
+    schema = assert_generated(workdir, output, spec_version)
+
+    assert_fixtures(schema)

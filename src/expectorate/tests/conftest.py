@@ -2,6 +2,15 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from ruamel import yaml
+
+HERE = Path(__file__).parent
+FIXTURES = HERE / "fixtures"
+LSP_FIXTURES = FIXTURES / "lsp"
+GOOD_LSP = {
+    p.name: yaml.safe_load_all(p.read_text())
+    for p in sorted(LSP_FIXTURES.glob("*_good_*.yaml"))
+}
 
 
 @pytest.fixture
