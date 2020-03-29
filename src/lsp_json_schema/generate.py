@@ -11,7 +11,7 @@ import pandas
 import pyemojify
 
 from . import constants
-from .spec_compat import VERSIONS, SpecVersion
+from .conventions import CONVENTIONS, SpecConvention
 from .utils import ensure_js_package, ensure_repo
 
 
@@ -23,7 +23,7 @@ class SpecGenerator:
     lsp_dir: Optional[Path] = None
     vlspn_dir: Optional[Path] = None
 
-    lsp_spec: SpecVersion = VERSIONS[constants.LSP_SPEC_VERSION]
+    lsp_spec: SpecConvention = CONVENTIONS[constants.LSP_SPEC_VERSION]
 
     lsp_repo: Text = constants.LSP_REPO
     lsp_committish: Text = constants.LSP_COMMIT

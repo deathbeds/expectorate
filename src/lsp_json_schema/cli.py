@@ -6,8 +6,8 @@ import click
 
 from . import constants
 from ._version import __version__
-from .api import SpecGenerator
-from .spec_compat import VERSIONS
+from .conventions import CONVENTIONS
+from .generate import SpecGenerator
 
 
 @click.command()
@@ -31,7 +31,9 @@ def cli(
     """ lsp-json-schema
     """
 
-    lsp_spec = VERSIONS.get(lsp_spec_version) or VERSIONS[constants.LSP_SPEC_VERSION]
+    lsp_spec = (
+        CONVENTIONS.get(lsp_spec_version) or CONVENTIONS[constants.LSP_SPEC_VERSION]
+    )
 
     assert lsp_spec
 
