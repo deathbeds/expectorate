@@ -1,6 +1,7 @@
-# lsp-json-schema
+# expectorate
 
-_Generates JSON Schema from specs the Language Server Protocol spec and reference implementations_
+Generates JSON Schema from specs and reference implementations
+- the Language Server Protocol spec and reference implementations
 
 > See original [gist](https://gist.github.com/bollwyvl/7a128978b8ae89ab02bbd5b84d07a4b7)
 
@@ -16,12 +17,12 @@ _Generates JSON Schema from specs the Language Server Protocol spec and referenc
 
 ```bash
 conda env update
-conda activate lsp-json-schema
+conda activate expectorate
 python -m pip install -e .
 ```
 
 ## Usage
 
 ```
-lsp-json-schema --help
+expectorate --help
 ```

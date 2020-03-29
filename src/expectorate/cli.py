@@ -28,7 +28,7 @@ def cli(
     vlspn_repo: Text,
     vlspn_committish: Text,
 ):
-    """ lsp-json-schema
+    """ expectorate
     """
 
     lsp_spec = (

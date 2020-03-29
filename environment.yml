@@ -1,4 +1,4 @@
-name: lsp-json-schema
+name: expectorate
 
 channels:
   - conda-forge

@@ -1,4 +1,4 @@
-name: lsp-json-schema
+name: expectorate
 
 commands:
   lab:
@@ -11,7 +11,7 @@ commands:
     unix: black src --quiet && isort -rc src && flake8 src
 
 env_specs:
-  lsp-json-schema:
+  expectorate:
     channels:
       - conda-forge
     packages:
