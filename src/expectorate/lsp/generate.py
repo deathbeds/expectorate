@@ -388,10 +388,10 @@ class SpecGenerator:
             ~self.df["_raw_result"].isnull()
         ][["_raw_result", "result", "result_schema"]]
 
-        if len(missing_params):
+        if len(missing_params):  # pragma: no cover
             self.log.error("missing params:")
             self.log.error(missing_params)
-        if len(missing_results):
+        if len(missing_results):  # pragma: no cover
             self.log.error("missing results:")
             self.log.error(missing_results)
 
